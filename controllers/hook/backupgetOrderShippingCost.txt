@@ -1,0 +1,97 @@
+<?php
+class ModulCarrierGetOrderShippingCostController{
+	public function __construct($module, $file, $path)
+		{
+			$this->file = $file;
+			$this->module = $module;
+			$this->context = Context::getContext();
+			$this->_path = $path;
+		}
+	public function getShippingCost($id_carrier, $delivery_service)
+	{
+		$shipping_cost = false;
+		if ($id_carrier == Configuration::get('MODUL_CA_JNE') && isset($delivery_service['JNE']))
+			$shipping_cost = (int)$delivery_service['JNE'];
+		if ($id_carrier == Configuration::get('MODUL_CA_TIKI') && isset($delivery_service['TIKI']))
+			$shipping_cost = (int)$delivery_service['TIKI'];
+		if ($id_carrier == Configuration::get('MODUL_CA_POS') && isset($delivery_service['POS']))
+			$shipping_cost = (int)$delivery_service['POS'];
+		return $shipping_cost;
+	}
+	public function loadCity($cart)
+	{
+		$address = new Address($cart->id_address_delivery);
+		$this->city = $address->city;
+	}
+	public function getCost(){
+		$curl = curl_init();
+		curl_setopt_array($curl, array(
+		  CURLOPT_URL => "http://rajaongkir.com/api/starter/cost",
+		  CURLOPT_RETURNTRANSFER => true,
+		  CURLOPT_ENCODING => "",
+		  CURLOPT_MAXREDIRS => 10,
+		  CURLOPT_TIMEOUT => 30,
+		  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+		  CURLOPT_CUSTOMREQUEST => "POST",
+		  CURLOPT_POSTFIELDS => "origin=501&destination=114&weight=1700",
+		  CURLOPT_HTTPHEADER => array(
+			"content-type: application/x-www-form-urlencoded",
+			"key: 4f56bb2e977b8886c7eb120dfc54a69f"
+		  ),
+		));
+
+		$response = curl_exec($curl);
+		$err = curl_error($curl);
+
+		curl_close($curl);
+		$result = json_decode($response, true);
+		return $result;
+	}
+	public function getDeliveryService($array)
+	{
+		/*$url = 'http://localhost/api/index.php';
+		$params = '?mca_email='.Configuration::get('MYMOD_CA_EMAIL').'&mca_token='.Configuration::get('MYMOD_CA_TOKEN').'&method=getShippingCost&city='.$this->city;
+		$result = json_decode(file_get_contents($url.$params), true);
+		return $result;*/
+		
+		
+		$hasil = new StdClass();
+		foreach($array as $key => $value){
+			//$hasil[] = $key;
+			if(is_array($value)) {
+				$this->getDeliveryService($value);
+			} else {
+				if($key == "name"){
+					$hasil->name = $value;
+					//var_dump($hasil);
+					//echo $value ;
+				}elseif($key == "service"){
+					$hasil->service = $value;
+					//var_dump($hasil);
+					//echo $value ;
+				}elseif($key == "value"){
+					$hasil->value = $value;
+					//var_dump($hasil);
+					//echo $value ;
+				}elseif($key == "etd"){
+					$hasil->etd = $value;
+					//var_dump($hasil);
+					//echo $value ;echo "<br>";
+				}
+			}
+		}
+		//var_dump($hasil);
+		return $hasil;
+	}
+	public function run($cart, $shipping_fees)
+	{
+		$this->loadCity($cart);
+		$getCost = $this->getCost();
+		$delivery_service = $this->getDeliveryService($getCost);
+		var_dump($delivery_service);
+		/*$shipping_cost = $this->getShippingCost($this->module->id_carrier, $delivery_service);
+		if ($shipping_cost === false)
+			return false;
+		return $shipping_cost + $shipping_fees;*/
+	}
+}
